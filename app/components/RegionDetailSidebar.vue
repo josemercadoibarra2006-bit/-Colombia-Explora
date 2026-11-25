@@ -1,4 +1,6 @@
 <script lang="ts">
+import type { ClaveSeccion, SeccionInfo } from '../types/explora'
+
 export interface RegionData {
   id: string
   nombre: string
@@ -12,6 +14,13 @@ export interface RegionData {
   retosTotal: number
   /** La región aún no tiene retos para jugar (solo información) */
   proximamente?: boolean
+  /** Ilustración de la región (ruta en public/) */
+  imagen?: string
+  imagenAlt?: string
+  /** Presentación corta de la región */
+  resumen?: string
+  /** Fichas: geografía, flora y fauna, economía y cultura */
+  secciones?: SeccionInfo[]
 }
 </script>
 
@@ -66,6 +75,38 @@ const textoBoton = computed(() => {
   }
 })
 
+/* ---------- Portada y fichas de información ---------- */
+const sinImagen = reactive<Record<string, boolean>>({})
+const claveActiva = ref<ClaveSeccion>('geografia')
+
+const seccionActiva = computed(
+  () => r.value?.secciones?.find((s) => s.clave === claveActiva.value) ?? r.value?.secciones?.[0]
+)
+
+// Al cambiar de región se vuelve a la primera ficha
+watch(
+  () => props.regionData?.id,
+  () => {
+    claveActiva.value = props.regionData?.secciones?.[0]?.clave ?? 'geografia'
+  }
+)
+
+// Texto con **negritas**: se separa en trozos para no usar v-html
+function partes(texto: string) {
+  return texto.split('**').map((t, i) => ({ t, fuerte: i % 2 === 1 }))
+}
+
+// Flechas izquierda/derecha para recorrer las pestañas con el teclado
+function moverPestana(paso: number) {
+  const lista = r.value?.secciones ?? []
+  if (lista.length === 0) return
+  const actual = Math.max(0, lista.findIndex((s) => s.clave === seccionActiva.value?.clave))
+  const sig = lista[(actual + paso + lista.length) % lista.length]
+  if (!sig) return
+  claveActiva.value = sig.clave
+  Promise.resolve().then(() => document.getElementById(`rds-tab-${sig.clave}`)?.focus())
+}
+
 function explorar() {
   if (r.value && !bloqueada.value) emit('explore', r.value.id)
 }
@@ -113,6 +154,11 @@ function explorar() {
         <svg class="adorno a-hoja-izq" viewBox="0 0 48 48" aria-hidden="true"><use href="#rds-hoja" /></svg>
         <svg class="adorno a-hoja-der" viewBox="0 0 48 48" aria-hidden="true"><use href="#rds-hoja" /></svg>
 
+        <!-- Ilustración de la región -->
+        <figure v-if="r.imagen && !sinImagen[r.id]" class="banner">
+          <img :src="r.imagen" :alt="r.imagenAlt ?? ''" @error="sinImagen[r.id] = true" />
+        </figure>
+
         <header class="cabecera">
           <div class="sello" aria-hidden="true">
             <span>{{ r.emoji }}</span>
@@ -125,6 +171,56 @@ function explorar() {
         </header>
 
         <div class="greca" aria-hidden="true" />
+
+        <p v-if="r.resumen" class="resumen">
+          <template v-for="(p, i) in partes(r.resumen)" :key="i">
+            <strong v-if="p.fuerte">{{ p.t }}</strong>
+            <template v-else>{{ p.t }}</template>
+          </template>
+        </p>
+
+        <!-- Fichas de información: una pestaña por tema -->
+        <section v-if="r.secciones?.length && seccionActiva" class="fichas">
+          <div
+            class="pestanas"
+            role="tablist"
+            aria-label="Información de la región"
+            @keydown.right.prevent="moverPestana(1)"
+            @keydown.left.prevent="moverPestana(-1)"
+          >
+            <button
+              v-for="sec in r.secciones"
+              :id="`rds-tab-${sec.clave}`"
+              :key="sec.clave"
+              type="button"
+              role="tab"
+              class="pestana"
+              :class="{ activa: sec.clave === seccionActiva.clave }"
+              :aria-selected="sec.clave === seccionActiva.clave"
+              :aria-controls="`rds-ficha-${sec.clave}`"
+              :tabindex="sec.clave === seccionActiva.clave ? 0 : -1"
+              @click="claveActiva = sec.clave"
+            >
+              <span aria-hidden="true">{{ sec.icono }}</span> {{ sec.etiqueta }}
+            </button>
+          </div>
+
+          <div
+            :id="`rds-ficha-${seccionActiva.clave}`"
+            :key="seccionActiva.clave"
+            class="ficha"
+            role="tabpanel"
+            :aria-labelledby="`rds-tab-${seccionActiva.clave}`"
+          >
+            <h3>{{ seccionActiva.titulo }}</h3>
+            <p>
+              <template v-for="(p, i) in partes(seccionActiva.texto)" :key="i">
+                <strong v-if="p.fuerte">{{ p.t }}</strong>
+                <template v-else>{{ p.t }}</template>
+              </template>
+            </p>
+          </div>
+        </section>
 
         <section class="progreso">
           <div class="progreso-fila">
@@ -437,6 +533,110 @@ h2 {
 }
 
 /* ================= Progreso: medidor de madera con cuerda ================= */
+/* ================= Portada de la región ================= */
+.banner {
+  position: relative;
+  z-index: 1;
+  height: 9.5rem;
+  margin: 0 0 0.9rem;
+  overflow: hidden;
+  border: 3px solid #5d4037;
+  border-radius: 12px;
+  background: #2a3f4f;
+  box-shadow: 0 0 0 2px rgba(246, 196, 83, 0.75), 0 6px 12px rgba(69, 26, 3, 0.45);
+}
+
+.banner img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  animation: aparece-hoja 0.5s ease-out;
+}
+
+/* Sombra interior: la ilustración parece incrustada en el papel */
+.banner::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 0 22px rgba(30, 15, 5, 0.45);
+  pointer-events: none;
+}
+
+.resumen {
+  margin: 0.1rem 0 0.9rem;
+  font-size: 0.95rem;
+  font-style: italic;
+  line-height: 1.5;
+}
+
+/* ================= Fichas de información (pestañas) ================= */
+.pestanas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.pestana {
+  padding: 0.28rem 0.8rem;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #3e2723;
+  cursor: pointer;
+  border: 2px solid #5d4037;
+  border-radius: 58% 42% 55% 45% / 52% 58% 42% 48%;
+  background: radial-gradient(circle at 30% 25%, #fbefd0 0, #e2c488 55%, #c19a58 100%);
+  box-shadow: inset 0 -2px 3px rgba(94, 56, 20, 0.35), 0 2px 0 rgba(94, 56, 20, 0.5);
+  transition: transform 0.18s;
+}
+
+.pestana:nth-child(2n) { border-radius: 45% 55% 42% 58% / 58% 45% 55% 42%; }
+.pestana:nth-child(3n) { border-radius: 52% 48% 60% 40% / 45% 56% 44% 55%; }
+
+.pestana:hover {
+  transform: translateY(-2px) scale(1.05);
+}
+
+.pestana:focus-visible {
+  outline: 3px solid #f6c453;
+  outline-offset: 2px;
+}
+
+.pestana.activa {
+  background: radial-gradient(circle at 30% 25%, #ffe9a8 0, #f0c75a 55%, #cf9a2a 100%);
+  border-color: #3e2723;
+  box-shadow: inset 0 -2px 3px rgba(94, 56, 20, 0.35), 0 2px 0 rgba(94, 56, 20, 0.5), 0 0 10px rgba(246, 196, 83, 0.75);
+}
+
+.ficha {
+  margin-top: 0.7rem;
+  padding: 0.7rem 0.9rem 0.8rem;
+  background: linear-gradient(170deg, #fcf3da, #f6e6bd);
+  border: 2px dashed #8d6e63;
+  border-radius: 6px;
+  box-shadow: 0 2px 4px rgba(69, 26, 3, 0.25), inset 0 0 12px rgba(217, 176, 114, 0.4);
+  animation: aparece-hoja 0.3s ease-out;
+}
+
+.ficha h3 {
+  margin: 0 0 0.3rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #8a4b12;
+}
+
+.ficha p {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.progreso {
+  margin-top: 1rem;
+}
+
 .progreso-fila {
   display: flex;
   justify-content: space-between;

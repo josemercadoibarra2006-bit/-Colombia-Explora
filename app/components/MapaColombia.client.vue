@@ -7,6 +7,7 @@ let estrellasVistas = 0
 import FondoOceano from './FondoOceano.vue'
 import GuiaExplora from './GuiaExplora.vue'
 import RegionDetailSidebar from './RegionDetailSidebar.vue'
+import { infoDeRegion } from '../data/regiones'
 
 const props = withDefaults(
   defineProps<{
@@ -188,6 +189,7 @@ const regionEnFoco = computed(() => regiones.find((r) => r.id === (enHover.value
 const datosPanel = computed(() => {
   const r = regionSeleccionada.value
   if (!r) return null
+  const info = infoDeRegion(r.id)
   return {
     id: r.id,
     nombre: r.nombre,
@@ -201,7 +203,12 @@ const datosPanel = computed(() => {
       | 'bloqueada',
     retosHechos: retosHechos(r.id),
     retosTotal: RETOS_POR_REGION,
-    proximamente: !CON_RETOS.includes(r.id)
+    proximamente: !CON_RETOS.includes(r.id),
+    // ilustración y fichas de información (app/data/regiones.ts)
+    imagen: info?.imagen,
+    imagenAlt: info?.imagenAlt,
+    resumen: info?.resumen,
+    secciones: info?.secciones
   }
 })
 

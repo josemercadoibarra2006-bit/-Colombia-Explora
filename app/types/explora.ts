@@ -51,6 +51,33 @@ export const ICONO_TIPO: Record<TipoActividad, string> = {
 
 export const esDeOpciones = (tipo: TipoActividad) => tipo !== 'actividad'
 
+/** Las cuatro fichas de información de cada región */
+export type ClaveSeccion = 'geografia' | 'flora' | 'economia' | 'cultura'
+
+export interface SeccionInfo {
+  clave: ClaveSeccion
+  /** Título completo de la ficha */
+  titulo: string
+  /** Texto corto de la pestaña */
+  etiqueta: string
+  icono: string
+  /** Texto de la ficha. Lo que va entre **dobles asteriscos** se muestra en negrita */
+  texto: string
+}
+
+/** Información y portada de una región natural */
+export interface InfoRegion {
+  id: Exclude<RegionId, 'general'>
+  /** Ilustración grande (panel del mapa). Ruta dentro de public/ */
+  imagen: string
+  /** Versión pequeña de la misma ilustración (tarjetas) */
+  imagenMini: string
+  imagenAlt: string
+  /** Presentación de la región en una o dos frases */
+  resumen: string
+  secciones: SeccionInfo[]
+}
+
 /** Mismos colores de región que usa el mapa (c1 → c2 es el degradado de la miniatura) */
 export const REGIONES: { id: RegionId; nombre: string; emoji: string; c1: string; c2: string }[] = [
   { id: 'general', nombre: 'General', emoji: '🗺️', c1: '#b5452f', c2: '#e0a15a' },

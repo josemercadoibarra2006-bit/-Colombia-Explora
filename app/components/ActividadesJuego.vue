@@ -4,6 +4,7 @@ import ModalJuego from './ModalJuego.vue'
 import JuegoModal from './JuegoModal.vue'
 import CreditosModal from './CreditosModal.vue'
 import { ETIQUETA_TIPO, ICONO_TIPO, REGIONES, esDeOpciones, regionDe } from '../types/explora'
+import { infoDeRegion } from '../data/regiones'
 import type { Actividad, TipoActividad } from '../types/explora'
 
 const props = withDefaults(
@@ -246,6 +247,10 @@ const INSIGNIA: Record<string, string> = { acertada: '✔', fallada: '✖', hech
 
 const iconoDe = (item: Actividad) => item.icono ?? ICONO_TIPO[item.tipo]
 
+// Miniatura: la foto propia de la actividad o, si no tiene, la ilustración de su región
+const imagenDe = (item: Actividad) => item.imagen ?? infoDeRegion(item.region)?.imagenMini
+const conImagen = (item: Actividad) => !!imagenDe(item) && !sinImagen[item.id]
+
 function etiquetaAria(item: Actividad) {
   const estado = estadoTarjeta(item)
   const extra = estado === 'bloqueada' ? ', bloqueada' : estado === 'acertada' ? ', acertada' : estado === 'fallada' ? ', respondida' : estado === 'hecha' ? ', hecha' : ''
@@ -473,13 +478,15 @@ onBeforeUnmount(() => {
                 :style="{ '--c1': regionDe(item.region).c1, '--c2': regionDe(item.region).c2 }"
               >
                 <img
-                  v-if="item.imagen && !sinImagen[item.id]"
-                  :src="item.imagen"
-                  :alt="item.titulo"
+                  v-if="conImagen(item)"
+                  :src="imagenDe(item)"
+                  alt=""
                   loading="lazy"
                   @error="sinImagen[item.id] = true"
                 />
                 <span v-else class="ilustracion" aria-hidden="true">{{ iconoDe(item) }}</span>
+                <!-- con ilustración de fondo, el ícono del tema pasa a una chapa pequeña -->
+                <span v-if="conImagen(item)" class="chapa-icono" aria-hidden="true">{{ iconoDe(item) }}</span>
                 <span class="etiqueta-region">{{ regionDe(item.region).nombre }}</span>
                 <span
                   v-if="estadoTarjeta(item) && estadoTarjeta(item) !== 'bloqueada'"
@@ -800,6 +807,21 @@ button:focus-visible {
   line-height: 1;
   filter: drop-shadow(0 5px 6px rgba(0, 0, 0, 0.4));
   transition: transform 0.35s;
+}
+
+.chapa-icono {
+  position: absolute;
+  left: 0.55rem;
+  bottom: 0.5rem;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  font-size: 1.3rem;
+  border-radius: 50%;
+  border: 2px solid #5d4037;
+  background: radial-gradient(circle at 35% 30%, #fff3d0, #ecd197);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
 }
 
 .etiqueta-region {
